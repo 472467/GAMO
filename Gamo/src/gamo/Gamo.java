@@ -7,55 +7,80 @@ import java.awt.event.*;
 import java.awt.image.BufferStrategy;
 
 import static com.sun.java.accessibility.util.AWTEventMonitor.addKeyListener;
+import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Created by bonetrail on 6/9/16.
  */
-public class Gamo extends Canvas implements Runnable {
+public class Gamo extends JFrame implements Runnable, WindowListener {
 
-    Frame frame = new JFrame();
-    ColorPanel panel = null;
     long time = 0;
     PointerInfo clickedPoint = null;
     boolean mousePressed = false;
-    boolean running = true;
+    boolean running = false;
     int degradeTicks = 0;
     int steps = 0;
     long fpsTime = 0;
+    BufferStrategy bs;
+    int offsetX = 0;
+    int offsetY = 0;
+    int pixelAccelX = 0;
+    int pixelAccelY = 0;
+    int maxAccelX = 4;
+    int maxAccelY = 4;
+    int tileSize = 16;
+    int mapWidthX = 500;
+    int mapWidthY = 500;
+    int fps=0;
+    
+    Color[][] colorMap = new Color[mapWidthX][mapWidthY];
+    
     public static void main(String[] args) {
+        new Thread() {//sorta fixes horrible stutter issue
+        { setDaemon(true); start(); }
+        @Override
+        public void run() { 
+            while(true) {
+                try {
+                    Thread.sleep(Integer.MAX_VALUE);
+                }catch(Throwable t){} } }
+            };
+
         (new Thread(new Gamo())).start();
 
     }
 
     public Gamo() {
-        Container center = new Container();
-        frame.createBufferStrategy(2);
-        panel = new ColorPanel(frame);
-        frame.setLayout(new BorderLayout());
+        Random r = new Random();
 
-        frame.setFocusable(true);
+        for(int x = 0; x < mapWidthX; x++){
+            for(int y = 0; y < mapWidthY; y++){
+                colorMap[x][y]= new Color(r.nextInt(256), r.nextInt(256), r.nextInt(256));
+            }
+        }
+        
+        //setLayout(new BorderLayout());
+
+        setFocusable(true);
 
         KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
         manager.addKeyEventDispatcher(new KeyListen());
-        frame.addMouseListener(new CustomMouse());
-        panel.addMouseListener(new CustomMouse());
-
-        center.setLayout(new GridLayout(1,1));
-
-        center.add(panel);
-
-        frame.add(center, BorderLayout.CENTER);
-        frame.setSize(400,400);
-        frame.setTitle("XD LMAO");
-        frame.setVisible(true);
-        frame.addWindowListener(new WindowAdapter() {
+        addMouseListener(new CustomMouse());
+        setSize(400,400);
+        setTitle("XD LMAO");
+        setVisible(true);
+        addWindowListener(new WindowAdapter() {
+            @Override
             public void windowClosing(WindowEvent windowEvent){
                 System.exit(0);
             }
         });
-        
-        
+        createBufferStrategy(2);
+        bs = getBufferStrategy();
 
+        running = true;
     }
     static {
         System.setProperty("sun.java2d.transaccel", "True");
@@ -69,7 +94,7 @@ public class Gamo extends Canvas implements Runnable {
     public void step(){
         if(System.currentTimeMillis() - fpsTime > 1000){
             fpsTime = System.currentTimeMillis();
-            panel.setfps(steps);
+            fps = steps;
             steps = 0;;
         }
         if(mousePressed){
@@ -81,31 +106,54 @@ public class Gamo extends Canvas implements Runnable {
         }
         calculateOffsets();
         pixelAccelDegradation();
-        
-        //panel.repaint();
-        //panel.paint(bs.getDrawGraphics());
-        //bs = panel.bs;
-        panel.repaint();
-        
+        //dispose();
+        //bs.show();
         steps++;
+    }
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        createBufferStrategy(2);
+        bs = getBufferStrategy();
+    }
+    public void render(){
+        Graphics g = bs.getDrawGraphics();
+        outerloop:
+        for(int x = 0; x < mapWidthX; x++){
+            for(int y = 0; y < mapWidthY; y++){
+                if(tileSize * x >= -offsetX -2 * tileSize){
+                    if(tileSize * y >= -offsetY - 2 * tileSize && tileSize * y <= -offsetY + getSize().getHeight()){
+                        if(tileSize * x >= -offsetX + getSize().getWidth()){
+                            break outerloop;
+                        }
+                        g.setColor(colorMap[x][y]);
+                        g.fillRect(tileSize * x + offsetX, tileSize * y + offsetY, tileSize, tileSize);
+                    }
+                }
+            }
+        }
+        g.drawString( ""+fps, 40 , 40);
+        g.dispose();
+        bs.show();
+
     }
 
     public void calculatePixelAcceleration(int x, int y){
 
-        panel.pixelAccelX+= x;
-        panel.pixelAccelY+= y;
-        System.out.println(panel.pixelAccelX);
-        if(panel.pixelAccelX > panel.maxAccelX && panel.pixelAccelX > 0){
-            panel.pixelAccelX = panel.maxAccelX;
-        }else if(panel.pixelAccelX < -panel.maxAccelX && panel.pixelAccelX < 0){
-            panel.pixelAccelX = -panel.maxAccelX;
+        pixelAccelX+= x;
+        pixelAccelY+= y;
+        System.out.println(pixelAccelX);
+        if(pixelAccelX > maxAccelX && pixelAccelX > 0){
+            pixelAccelX = maxAccelX;
+        }else if(pixelAccelX < -maxAccelX && pixelAccelX < 0){
+            pixelAccelX = -maxAccelX;
         }
-        if(panel.pixelAccelY > panel.maxAccelY && panel.pixelAccelY > 0){
-            panel.pixelAccelY = panel.maxAccelY;
-        }else if(panel.pixelAccelY < -panel.maxAccelY && panel.pixelAccelY < 0){
-            panel.pixelAccelY = -panel.maxAccelY;
+        if(pixelAccelY > maxAccelY && pixelAccelY > 0){
+            pixelAccelY = maxAccelY;
+        }else if(pixelAccelY < -maxAccelY && pixelAccelY < 0){
+            pixelAccelY = -maxAccelY;
         }
-        System.out.println(panel.pixelAccelX);
+        System.out.println(pixelAccelX);
         degradeTicks = 10;
     }
 
@@ -113,18 +161,18 @@ public class Gamo extends Canvas implements Runnable {
         if(degradeTicks != 0){
             degradeTicks-=1;
         }else{
-            if(panel.pixelAccelY != 0){
-                if(panel.pixelAccelY > 0){
-                    panel.pixelAccelY-=1;
-                }else if(panel.pixelAccelY < 0){
-                    panel.pixelAccelY+=1;
+            if(pixelAccelY != 0){
+                if(pixelAccelY > 0){
+                    pixelAccelY-=1;
+                }else if(pixelAccelY < 0){
+                    pixelAccelY+=1;
                 }
             }
-            if(panel.pixelAccelX != 0){
-                if(panel.pixelAccelX > 0){
-                    panel.pixelAccelX-=1;
-                }else if(panel.pixelAccelX < 0){
-                    panel.pixelAccelX+=1;
+            if(pixelAccelX != 0){
+                if(pixelAccelX > 0){
+                    pixelAccelX-=1;
+                }else if(pixelAccelX < 0){
+                    pixelAccelX+=1;
                 }
             }
 
@@ -132,28 +180,40 @@ public class Gamo extends Canvas implements Runnable {
     }
 
     public void calculateOffsets(){
-        panel.offsetX+= panel.pixelAccelX;
-        panel.offsetY+= panel.pixelAccelY;
+        offsetX+= pixelAccelX;
+        offsetY+= pixelAccelY;
     }
 
     @Override
     public void run() {
         while(running){
-            /*
-            if (System.currentTimeMillis() - time >= 17) {
-                step();
-                time= System.currentTimeMillis();
-            }
-*/      
             step();
+            render();
             try {
-                Thread.sleep(17);
-            }catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.sleep(1);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Gamo.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+        
+
     }
 
+    @Override
+    public void windowOpened(WindowEvent e) {}
+    @Override
+    public void windowClosing(WindowEvent e) {}
+    @Override
+    public void windowClosed(WindowEvent e) {}
+    @Override
+    public void windowIconified(WindowEvent e) {}
+    @Override
+    public void windowDeiconified(WindowEvent e) {}
+    @Override
+    public void windowActivated(WindowEvent e) {}
+    @Override
+    public void windowDeactivated(WindowEvent e) {}
+    
     private class CustomMouse implements MouseListener{
 
         @Override
@@ -194,42 +254,59 @@ public class Gamo extends Canvas implements Runnable {
 
                 if (key == KeyEvent.VK_RIGHT) {
                     System.out.println("RIGHT");
-                    if (panel.mapWidthX * panel.tileSize + panel.offsetX >= 0) {
+                    if (mapWidthX * tileSize + offsetX >= 0) {
                         calculatePixelAcceleration(-1,0);
                     }
 
                 }
                 if (key == KeyEvent.VK_LEFT) {
-                    if (panel.offsetX <= 0) {
+                    if (offsetX <= 0) {
                         calculatePixelAcceleration(1,0);
                     }
                 }
                 if (key == KeyEvent.VK_UP) {
-                    if (panel.offsetY <= 0) {
+                    if (offsetY <= 0) {
                         calculatePixelAcceleration(0,1);
                     }
                 }
                 if (key == KeyEvent.VK_DOWN) {
-                    if (panel.mapWidthY * panel.tileSize + panel.offsetY >= 0) {
+                    if (mapWidthY * tileSize + offsetY >= 0) {
                         calculatePixelAcceleration(0,-1);
                     }
                 }
                 if(key == KeyEvent.VK_MINUS){
-                    double hold = panel.tileSize/2;
+                    double hold = tileSize/2;
                     if ((hold == Math.floor(hold)) && !Double.isInfinite(hold)) {
-                        panel.tileSize /= 2;
+                        tileSize /= 2;
 
                     }
                 }
                 if(key == KeyEvent.VK_EQUALS){
-                    panel.tileSize*= 2;
+                    tileSize*= 2;
                 }
             }
             return false;
         }
     }
+    private class TimeThread implements Runnable{
+        public TimeThread(){
+            
+        }
+        @Override
+        public void run() {
+            while(true) {
+                try {
+                    Thread.sleep(Integer.MAX_VALUE);
+                }catch(Throwable t){
+                    t.printStackTrace();
+                }
+            }
+        }
+    
+    }
 
 }
+
 
 
 

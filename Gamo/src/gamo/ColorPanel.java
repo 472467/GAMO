@@ -20,8 +20,7 @@ public class ColorPanel extends Canvas {
     BufferStrategy bs = null;
     Color[][] colorMap = new Color[mapWidthX][mapWidthY];
 
-    public ColorPanel(Frame f){
-        bs = f.getBufferStrategy();
+    public ColorPanel(){
         Random r = new Random();
 
         for(int x = 0; x < mapWidthX; x++){
@@ -29,10 +28,9 @@ public class ColorPanel extends Canvas {
                 colorMap[x][y]= new Color(r.nextInt(256), r.nextInt(256), r.nextInt(256));
             }
         }
-        
         //setBackground(Color.pink);
     }
-    
+
     public void paint(Graphics g){
         Graphics2D g2d = (Graphics2D)g;
         outerloop:
@@ -53,32 +51,7 @@ public class ColorPanel extends Canvas {
         g2d.dispose();
 
     }
-    public void render(){
-        Graphics2D bkG = (Graphics2D) bs.getDrawGraphics();
-        
-        outerloop:
-        for(int x = 0; x < mapWidthX; x++){
-            for(int y = 0; y < mapWidthY; y++){
-                if(tileSize * x >= -offsetX -2 * tileSize){
-                    if(tileSize * y >= -offsetY - 2 * tileSize && tileSize * y <= -offsetY + getSize().getHeight()){
-                        if(tileSize * x >= -offsetX + getSize().getWidth()){
-                            break outerloop;
-                        }
-                        bkG.setColor(colorMap[x][y]);
-                        bkG.fillRect(tileSize * x + offsetX, tileSize * y + offsetY, tileSize, tileSize);
-                    }
-                }
-            }
-        }
-        bkG.drawString( ""+fps, 40 , 40);
-        
-        bkG.dispose();
-        bkG.dispose();
-        bs.show();
 
-        Toolkit.getDefaultToolkit().sync();
-    }
-    
     public void feedBS(BufferStrategy bufferStrategy){
         bs = bufferStrategy;
     }
