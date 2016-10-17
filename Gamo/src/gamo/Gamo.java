@@ -7,9 +7,13 @@ import java.awt.event.*;
 import java.awt.image.BufferStrategy;
 
 import static com.sun.java.accessibility.util.AWTEventMonitor.addKeyListener;
+import gamo.tiles.TILE;
+import java.io.File;
+import java.io.IOException;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 
 /**
  * Created by bonetrail on 6/9/16.
@@ -30,14 +34,19 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
     int pixelAccelY = 0;
     int maxAccelX = 4;
     int maxAccelY = 4;
-    int tileSize = 16;
+    int tileSize = 128;
     int mapWidthX = 500;
     int mapWidthY = 500;
     int fps=0;
+    Image i;
+    Image gr;
     
     Color[][] colorMap = new Color[mapWidthX][mapWidthY];
+    int[][] intMap = new int[mapWidthX][mapWidthY];
+    TILE[][] tileMap = new TILE[mapWidthX][mapWidthY];
     
     public static void main(String[] args) {
+        
         new Thread() {//sorta fixes horrible stutter issue
         { setDaemon(true); start(); }
         @Override
@@ -53,11 +62,19 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
     }
 
     public Gamo() {
+        try{
+            i =  ImageIO.read(new File("a62.png"));
+            gr =  ImageIO.read(new File("g.png"));
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+        
         Random r = new Random();
 
         for(int x = 0; x < mapWidthX; x++){
             for(int y = 0; y < mapWidthY; y++){
                 colorMap[x][y]= new Color(r.nextInt(256), r.nextInt(256), r.nextInt(256));
+                intMap[x][y]= r.nextInt(2);
             }
         }
         
@@ -77,8 +94,6 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
                 System.exit(0);
             }
         });
-        createBufferStrategy(2);
-        bs = getBufferStrategy();
 
         running = true;
     }
@@ -89,6 +104,13 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
         System.setProperty("sun.java2d.d3d", "True");
         System.setProperty("sun.java2d.ddforcevram", "True");
         System.out.println(true);
+    }
+    
+    @Override
+    public void addNotify(){
+        super.addNotify();
+        createBufferStrategy(2);
+        bs = this.getBufferStrategy();
     }
 
     public void step(){
@@ -110,12 +132,6 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
         //bs.show();
         steps++;
     }
-    @Override
-    public void addNotify() {
-        super.addNotify();
-        createBufferStrategy(2);
-        bs = getBufferStrategy();
-    }
     public void render(){
         Graphics g = bs.getDrawGraphics();
         outerloop:
@@ -126,8 +142,15 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
                         if(tileSize * x >= -offsetX + getSize().getWidth()){
                             break outerloop;
                         }
-                        g.setColor(colorMap[x][y]);
-                        g.fillRect(tileSize * x + offsetX, tileSize * y + offsetY, tileSize, tileSize);
+                        Random r = new Random();
+                        if(intMap[x][y] == 0){
+                            g.drawImage(i, tileSize * x + offsetX, tileSize * y + offsetY, null);
+                        }else{
+                            g.drawImage(gr, tileSize * x + offsetX, tileSize * y + offsetY, null);
+                        }
+                        
+                        
+                        
                     }
                 }
             }
@@ -135,7 +158,6 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
         g.drawString( ""+fps, 40 , 40);
         g.dispose();
         bs.show();
-
     }
 
     public void calculatePixelAcceleration(int x, int y){
@@ -244,6 +266,14 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
             //System.out.println("Pressed");
         }
     }
+    
+    public void genWorld(){
+        for(int x = 0; x < mapWidthX; x++){
+            for(int y = 0; y < mapWidthY; y++){
+                
+            }
+        }
+    }
 
     private class KeyListen implements KeyEventDispatcher{
         @Override
@@ -288,22 +318,7 @@ public class Gamo extends JFrame implements Runnable, WindowListener {
             return false;
         }
     }
-    private class TimeThread implements Runnable{
-        public TimeThread(){
-            
-        }
-        @Override
-        public void run() {
-            while(true) {
-                try {
-                    Thread.sleep(Integer.MAX_VALUE);
-                }catch(Throwable t){
-                    t.printStackTrace();
-                }
-            }
-        }
     
-    }
 
 }
 
